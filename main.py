@@ -11,6 +11,8 @@ discord.MemberCacheFlags.all()
 
 bot = discord.Bot(intents=discord.Intents.all())
 
+process_lock = asyncio.Lock()
+
 f = open("save.txt", "r", encoding='utf-8')
 global cache
 c = f.read()
@@ -395,18 +397,19 @@ async def process_message(message):
 async def process_messages():
     while True:
         message = await message_queue.get()
-        c = await get_value(message.guild.id,"channel")
-        if c == message.channel.id:
-            await process_message(message)
-        elif c == 0 and not message.author.bot and await process_math(message.content) is not None:
-            await message.channel.send("Please set a counting channel with </setchannel:1269760558194884740>", reference=message)
-        if message.author.id in affected_count_users:
-            for c in counts:
-                if message.author.id in c['targeted_users']:
-                    for w in c['targeted_words']:
-                        if w in message.content:
-                            c['current_count'] += 1
-                            await message.channel.send(c['name'] + ": " + str(c['current_count']), reference=message)
+        async with process_lock:
+            c = await get_value(message.guild.id,"channel")
+            if c == message.channel.id:
+                await process_message(message)
+            elif c == 0 and not message.author.bot and await process_math(message.content) is not None:
+                await message.channel.send("Please set a counting channel with </setchannel:1269760558194884740>", reference=message)
+            if message.author.id in affected_count_users:
+                for c in counts:
+                    if message.author.id in c['targeted_users']:
+                        for w in c['targeted_words']:
+                            if w in message.content:
+                                c['current_count'] += 1
+                                await message.channel.send(c['name'] + ": " + str(c['current_count']), reference=message)
         message_queue.task_done()
     
 async def execute_periodically(interval):
